@@ -7,7 +7,7 @@ import { createNotesRouter } from "./server/routes/notes.js";
 
 // Bootstrap shared clients and HTTP middleware.
 const app = express();
-const port = process.env.PORT || 3001;
+const port = process.env.PORT || 3002;
 const supabaseUrl = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL;
 const supabaseKey = process.env.SUPABASE_PUBLISHABLE_KEY || process.env.VITE_SUPABASE_PUBLISHABLE_KEY;
 const supabase = supabaseUrl && supabaseKey
@@ -35,8 +35,8 @@ app.get("/healthz", (_req, res) => {
   const ready = Boolean(supabase);
   res.status(ready ? 200 : 503).json({ status: ready ? "ok" : "not_ready" });
 });
-// Mount the disabled AI endpoint before the generic API 404 and static app fallback.
-app.use("/api/notes", createNotesRouter());
+// Mount the authenticated AI endpoint before the generic API 404 and static app fallback.
+app.use("/api/notes", createNotesRouter({ supabase }));
 app.use("/api", (_req, res) => res.status(404).json({ error: "API route not found." }));
 
 if (existsSync("dist/index.html")) {
