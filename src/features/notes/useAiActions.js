@@ -22,8 +22,8 @@ export function useAiActions(session, note) {
         },
         body: JSON.stringify({ content: note }),
       });
-      const data = await response.json();
-      if (!response.ok) throw new Error(data.error || "Something went wrong.");
+      const data = await response.json().catch(() => null);
+      if (!response.ok) throw new Error(data?.error || "Something went wrong.");
       setResult(data.result);
       void logUserEvent("ai.action_succeeded", { action });
     } catch (requestError) {
