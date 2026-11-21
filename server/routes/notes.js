@@ -33,19 +33,45 @@ export function createNotesRouter({ supabase, openai, model }) {
     }
 
     try {
-      const response = await openai.responses.create({
+      const response = await openai.chat.completions.create({
         model,
-        instructions:
-          action === "summarize"
-            ? "Summarize the user's markdown notes clearly and concisely. Preserve key facts and use markdown when helpful."
-            : "Rewrite the user's markdown notes for clarity and flow. Preserve their meaning, facts, and markdown structure.",
-        input: content.trim(),
+        messages: [
+          {
+            role: "system",
+            content:
+              action === "summarize"
+                ? "Summarize the user's markdown notes clearly and concisely. Preserve key facts and use markdown when helpful."
+                : "Rewrite the user's markdown notes for clarity and flow. Preserve their meaning, facts, and markdown structure.",
+          },
+          { role: "user", content: content.trim() },
+        ],
       });
 
-      return res.json({ result: response.output_text });
+      const result = response?.choices?.[0]?.message?.content?.trim();
+      if (!result) {
+        throw new Error("The AI provider returned an empty response.");
+      }
+
+      return res.json({ result });
     } catch (error) {
-      console.error("OpenAI request failed:", error.message);
-      return res.status(502).json({ error: "The AI request failed. Check the server configuration and try again." });
+      const status = error?.status ?? error?.statusCode;
+      const code = error?.code ?? error?.type;
+      console.error("OpenAI request failed:", {
+        status,
+        code,
+        message: error?.message,
+      });
+
+      if (status === 401 || status === 403 || code === "invalid_api_key") {
+        return res.status(502).json({ error: "The AI provider rejected its server credentials. Check OPENAI_API_KEY." });
+      }
+      if (status === 429) {
+        return res.status(429).json({ error: "The AI provider is busy or out of quota. Please try again later." });
+      }
+      if (status === 408 || code === "timeout" || code === "ETIMEDOUT") {
+        return res.status(504).json({ error: "The AI request timed out. Please try again." });
+      }
+      return res.status(502).json({ error: "The AI request failed. Please try again." });
     }
   });
 
