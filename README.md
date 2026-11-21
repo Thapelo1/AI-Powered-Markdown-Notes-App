@@ -10,12 +10,13 @@ Margin is a React app for writing one Markdown note per account and asking an AI
 
 ## Configure Supabase
 
-1. In the Supabase SQL Editor, run [`supabase/schema.sql`](supabase/schema.sql). It creates the `notes` table, limits note length to 20,000 characters, and enables row-level security so a signed-in user can access only their own row.
+1. For a new Supabase project, run [`supabase/schema.sql`](supabase/schema.sql). It creates the `notes` and `activity_events` tables, limits note length to 20,000 characters, and enables row-level security so signed-in users can access only their own rows. For an existing project, run [`supabase/activity_events.sql`](supabase/activity_events.sql) to add the event table and its access policies.
 2. In Authentication settings, enable email/password sign-in. Set the site's URL and allowed redirect URLs for your local and deployed app. Email confirmation is controlled by your Supabase project's Auth settings.
 3. Copy `.env.example` to `.env`. Add your OpenAI API key. The Supabase URL and publishable key are prefilled for this project; keep each server/browser pair identical.
 
 The browser uses the public publishable key; row-level security protects note data. Never put a Supabase secret/service-role key or OpenAI API key in the browser or commit them to source control.
 Notes are stored by Supabase; their text is sent to OpenAI only when a user chooses Rewrite or Summarize.
+Authenticated behavior events (sign-in/out, note load/save/import, and AI actions) are stored in Supabase's `activity_events` table. Inspect them in the Supabase Table Editor or query them in the SQL Editor. Events contain action names and limited metadata only—not note content, passwords, access tokens, or email addresses. Server diagnostics continue to appear in the hosting provider's application logs. Failed sign-ins and sign-ups awaiting email confirmation are not recorded as behavior events.
 
 ## Run locally
 

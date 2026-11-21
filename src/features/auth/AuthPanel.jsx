@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { supabase } from "../../lib/supabase.js";
+import { getAuthErrorMessage, logUserEvent, supabase } from "../../lib/supabase.js";
 
 // Supabase validates credentials and applies the project's email-confirmation policy.
 export default function AuthPanel({ initialError }) {
@@ -20,13 +20,18 @@ export default function AuthPanel({ initialError }) {
       if (mode === "sign-up") {
         const { data, error: signUpError } = await supabase.auth.signUp({ email, password });
         if (signUpError) throw signUpError;
-        if (!data.session) setMessage("Check your email to confirm your account, then sign in.");
+        if (data.session) {
+          void logUserEvent("auth.signed_up");
+        } else {
+          setMessage("Check your email to confirm your account, then sign in.");
+        }
       } else {
         const { error: signInError } = await supabase.auth.signInWithPassword({ email, password });
         if (signInError) throw signInError;
+        void logUserEvent("auth.signed_in");
       }
     } catch (requestError) {
-      setError(requestError.message || "Could not authenticate. Please try again.");
+      setError(getAuthErrorMessage(requestError, "Could not authenticate. Please try again."));
     } finally {
       setSubmitting(false);
     }
