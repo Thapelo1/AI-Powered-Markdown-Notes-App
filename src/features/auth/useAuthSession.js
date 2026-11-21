@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { supabase } from "../../lib/supabase.js";
+import { getAuthErrorMessage, logUserEvent, supabase } from "../../lib/supabase.js";
 
 // Restore the persisted session once, then keep the UI synchronized with auth events.
 export function useAuthSession() {
@@ -23,13 +23,13 @@ export function useAuthSession() {
     supabase.auth.getSession()
       .then(({ data, error }) => {
         if (!active) return;
-        if (error) setAuthError(error.message);
+        if (error) setAuthError(getAuthErrorMessage(error, "Could not check your sign-in status."));
         setSession(data.session);
         setAuthReady(true);
       })
       .catch((error) => {
         if (!active) return;
-        setAuthError(error.message || "Could not check your sign-in status.");
+        setAuthError(getAuthErrorMessage(error, "Could not check your sign-in status."));
         setAuthReady(true);
       });
 
@@ -40,6 +40,7 @@ export function useAuthSession() {
   }, []);
 
   async function signOut() {
+    await logUserEvent("auth.signed_out");
     const { error } = await supabase.auth.signOut();
     if (error) setAuthError(error.message);
   }

@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { LEGACY_NOTE_KEY, supabase } from "../../lib/supabase.js";
+import { LEGACY_NOTE_KEY, logUserEvent, supabase } from "../../lib/supabase.js";
 
 // Read the old browser-only draft so it can be imported deliberately, not silently moved.
 function readLegacyNote() {
@@ -60,6 +60,7 @@ export function useAccountNote(session) {
       setNote(data?.content || "");
       setNoteExists(Boolean(data));
       lastSavedNote.current = data?.content ?? null;
+      void logUserEvent("note.loaded", { has_note: Boolean(data) });
       // Do not replace an account's remote note with an unrelated browser draft.
       setShowImport(!data && Boolean(legacyNote));
       setLoadedUserId(userId);
@@ -97,6 +98,7 @@ export function useAccountNote(session) {
             .from("notes")
             .upsert({ user_id: userId, content: note }, { onConflict: "user_id" });
           if (error) throw error;
+          void logUserEvent("note.saved", { character_count: note.length });
           if (!cancelled) {
             lastSavedNote.current = note;
             setNoteError("");
@@ -130,6 +132,7 @@ export function useAccountNote(session) {
         .insert({ user_id: session.user.id, content: legacyNote });
       if (error) throw error;
       setNote(legacyNote);
+      void logUserEvent("note.imported", { character_count: legacyNote.length });
       setNoteExists(true);
       lastSavedNote.current = legacyNote;
       setShowImport(false);
