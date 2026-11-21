@@ -1,3 +1,4 @@
+import { useState } from "react";
 import AuthPanel from "./features/auth/AuthPanel.jsx";
 import { useAuthSession } from "./features/auth/useAuthSession.js";
 import { useAccountNote } from "./features/notes/useAccountNote.js";
@@ -5,6 +6,9 @@ import { NOTE_LIMIT, supabase } from "./lib/supabase.js";
 
 // Compose feature state into the three app-level views: setup, sign-in, and the note workspace.
 export default function App() {
+  const [aiAction, setAiAction] = useState(null);
+  const [aiResult, setAiResult] = useState("");
+  const [aiError, setAiError] = useState("");
   const { session, authReady, authError, setAuthError, signOut } = useAuthSession();
   const {
     note,
@@ -18,6 +22,40 @@ export default function App() {
     importing,
     importLegacyNote,
   } = useAccountNote(session);
+
+  async function runAiAction(action) {
+    if (aiAction || !note.trim()) return;
+
+    setAiAction(action);
+    setAiResult("");
+    setAiError("");
+    try {
+      const response = await fetch(`/api/notes/${action}`, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${session.access_token}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ note }),
+      });
+      let payload;
+      try {
+        payload = await response.json();
+      } catch {
+        throw new Error(`AI request failed (${response.status}).`);
+      }
+      if (!response.ok) throw new Error(payload.error || `AI request failed (${response.status}).`);
+      if (typeof payload.result !== "string" || !payload.result.trim()) {
+        throw new Error("The AI returned an empty response. Try again.");
+      }
+      setAiResult(payload.result);
+    } catch (error) {
+      setAiError(error instanceof Error ? error.message : "AI action failed. Try again.");
+    } finally {
+      setAiAction(null);
+    }
+  }
+
   if (!supabase) {
     return (
       <main className="auth-page">
@@ -100,10 +138,14 @@ export default function App() {
               aria-label="Write your markdown note"
               placeholder={"# Your next big idea\n\nStart with a thought, a meeting note, or a messy first draft.\n\nMarkdown works here, too:\n- Add a list\n- **Emphasize** what matters"}
               value={note}
-              onChange={(event) => setNote(event.target.value)}
+              onChange={(event) => {
+                setNote(event.target.value);
+                setAiResult("");
+                setAiError("");
+              }}
               spellCheck="false"
               maxLength={NOTE_LIMIT}
-              disabled={!noteReady || importing}
+              disabled={!noteReady || importing || Boolean(aiAction)}
             />
             <div className="editor-footer">
               <span>Changes save to your account</span>
@@ -118,10 +160,22 @@ export default function App() {
             <div className="panel-header">
               <span className="panel-title"><span className="dot dot-purple" /> AI companion</span>
             </div>
-            <div className="result-empty">
-              <span className="result-icon">✳</span>
-              <p>AI actions are disabled to avoid paid API usage.</p>
-            </div>
+            {aiAction ? (
+              <div className="result-empty" role="status">
+                <span className="loader" aria-hidden="true" />
+                <p>{aiAction === "rewrite" ? "Rewriting your note…" : "Summarizing your note…"}</p>
+              </div>
+            ) : aiError ? (
+              <p className="storage-error" role="alert">{aiError}</p>
+            ) : aiResult ? (
+              <div className="result-content">{aiResult}</div>
+            ) : (
+              <div className="result-empty">
+                <span className="result-icon">✳</span>
+                <p>Rewrite for clarity or summarize your note.</p>
+                <p className="result-hint">Your note is sent to OpenAI only when you choose an action. API usage may be billed.</p>
+              </div>
+            )}
           </section>
         </div>
 
@@ -131,15 +185,15 @@ export default function App() {
             <span><strong>Make it yours.</strong> Your original note stays untouched.</span>
           </div>
           <div className="actions">
-            <button className="button button-secondary" disabled title="AI actions are disabled to avoid paid API usage.">
-              <span className="rewrite-icon">↗</span> Rewrite
+            <button className="button button-secondary" disabled={!noteReady || !note.trim() || Boolean(aiAction) || importing} onClick={() => runAiAction("rewrite")}>
+              <span className="rewrite-icon">↗</span> {aiAction === "rewrite" ? "Rewriting…" : "Rewrite"}
             </button>
-            <button className="button button-primary" disabled title="AI actions are disabled to avoid paid API usage.">
-              <span>✳</span> Summarize
+            <button className="button button-primary" disabled={!noteReady || !note.trim() || Boolean(aiAction) || importing} onClick={() => runAiAction("summarize")}>
+              <span>✳</span> {aiAction === "summarize" ? "Summarizing…" : "Summarize"}
             </button>
           </div>
         </div>
-        <footer className="page-footer"><span>Made for the thoughts that deserve a second look.</span><span>Your notes are stored in your Supabase account.</span></footer>
+        <footer className="page-footer"><span>Made for the thoughts that deserve a second look.</span><span>Notes are stored in Supabase; AI actions send them to OpenAI and may be billed.</span></footer>
       </section>
     </main>
   );

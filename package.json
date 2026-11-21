@@ -11,6 +11,7 @@
     "dev:server": "node --watch server.js",
     "dev:client": "vite",
     "build": "vite build",
+    "test": "node --test",
     "start": "node server.js"
   },
   "dependencies": {
