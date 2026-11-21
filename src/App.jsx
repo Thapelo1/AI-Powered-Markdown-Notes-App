@@ -14,23 +14,40 @@ function AiActionWorkspace({
   importing,
 }) {
   const [aiAction, setAiAction] = useState(null);
-  const [aiResult, setAiResult] = useState("");
-  const [aiError, setAiError] = useState("");
+  const [aiResult, setAiResult] = useState(null);
+  const [aiError, setAiError] = useState(null);
   const requestRef = useRef(null);
 
+  useEffect(() => {
+    const request = requestRef.current;
+    if (request && request.note !== note) {
+      request.controller.abort();
+      requestRef.current = null;
+    }
+    setAiAction((current) => current?.note === note ? current : null);
+    setAiResult((current) => current?.note === note ? current : null);
+    setAiError((current) => current?.note === note ? current : null);
+  }, [note]);
+
   useEffect(() => () => {
-    requestRef.current?.abort();
+    requestRef.current?.controller.abort();
     requestRef.current = null;
   }, []);
+
+  const currentAiAction = aiAction?.note === note ? aiAction.action : null;
+  const currentAiResult = aiResult?.note === note ? aiResult.result : "";
+  const currentAiError = aiError?.note === note ? aiError.message : "";
+  const aiBusy = Boolean(requestRef.current);
 
   async function runAiAction(action) {
     if (requestRef.current || !note.trim()) return;
 
     const controller = new AbortController();
-    requestRef.current = controller;
-    setAiAction(action);
-    setAiResult("");
-    setAiError("");
+    const request = { controller, note };
+    requestRef.current = request;
+    setAiAction({ note, action });
+    setAiResult(null);
+    setAiError(null);
     try {
       const response = await fetch(`/api/notes/${action}`, {
         method: "POST",
@@ -51,14 +68,14 @@ function AiActionWorkspace({
       if (typeof payload.result !== "string" || !payload.result.trim()) {
         throw new Error("The AI returned an empty response. Try again.");
       }
-      if (requestRef.current !== controller || controller.signal.aborted) return;
-      setAiResult(payload.result);
+      if (requestRef.current !== request || controller.signal.aborted) return;
+      setAiResult({ note, result: payload.result });
     } catch (error) {
-      if (requestRef.current === controller && !controller.signal.aborted) {
-        setAiError(error instanceof Error ? error.message : "AI action failed. Try again.");
+      if (requestRef.current === request && !controller.signal.aborted) {
+        setAiError({ note, message: error instanceof Error ? error.message : "AI action failed. Try again." });
       }
     } finally {
-      if (requestRef.current === controller) {
+      if (requestRef.current === request) {
         requestRef.current = null;
         setAiAction(null);
       }
@@ -79,12 +96,12 @@ function AiActionWorkspace({
             value={note}
             onChange={(event) => {
               setNote(event.target.value);
-              setAiResult("");
-              setAiError("");
+              setAiResult(null);
+              setAiError(null);
             }}
             spellCheck="false"
             maxLength={NOTE_LIMIT}
-            disabled={!noteReady || importing || Boolean(aiAction)}
+            disabled={!noteReady || importing || aiBusy}
           />
           <div className="editor-footer">
             <span>Changes save to your account</span>
@@ -99,15 +116,15 @@ function AiActionWorkspace({
           <div className="panel-header">
             <span className="panel-title"><span className="dot dot-purple" /> AI companion</span>
           </div>
-          {aiAction ? (
+          {currentAiAction ? (
             <div className="result-empty" role="status">
               <span className="loader" aria-hidden="true" />
-              <p>{aiAction === "rewrite" ? "Rewriting your note…" : "Summarizing your note…"}</p>
+              <p>{currentAiAction === "rewrite" ? "Rewriting your note…" : "Summarizing your note…"}</p>
             </div>
-          ) : aiError ? (
-            <p className="storage-error" role="alert">{aiError}</p>
-          ) : aiResult ? (
-            <div className="result-content">{aiResult}</div>
+          ) : currentAiError ? (
+            <p className="storage-error" role="alert">{currentAiError}</p>
+          ) : currentAiResult ? (
+            <div className="result-content">{currentAiResult}</div>
           ) : (
             <div className="result-empty">
               <span className="result-icon">✳</span>
@@ -124,11 +141,11 @@ function AiActionWorkspace({
           <span><strong>Make it yours.</strong> Your original note stays untouched.</span>
         </div>
         <div className="actions">
-          <button className="button button-secondary" disabled={!noteReady || !note.trim() || Boolean(aiAction) || importing} onClick={() => runAiAction("rewrite")}>
-            <span className="rewrite-icon">↗</span> {aiAction === "rewrite" ? "Rewriting…" : "Rewrite"}
+          <button className="button button-secondary" disabled={!noteReady || !note.trim() || aiBusy || importing} onClick={() => runAiAction("rewrite")}>
+            <span className="rewrite-icon">↗</span> {currentAiAction === "rewrite" ? "Rewriting…" : "Rewrite"}
           </button>
-          <button className="button button-primary" disabled={!noteReady || !note.trim() || Boolean(aiAction) || importing} onClick={() => runAiAction("summarize")}>
-            <span>✳</span> {aiAction === "summarize" ? "Summarizing…" : "Summarize"}
+          <button className="button button-primary" disabled={!noteReady || !note.trim() || aiBusy || importing} onClick={() => runAiAction("summarize")}>
+            <span>✳</span> {currentAiAction === "summarize" ? "Summarizing…" : "Summarize"}
           </button>
         </div>
       </div>
