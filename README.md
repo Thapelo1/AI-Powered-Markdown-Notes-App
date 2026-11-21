@@ -37,6 +37,18 @@ The Node server serves the built app and API from the same origin. Set `PORT` if
 
 For a public deployment, use HTTPS, configure Supabase's production site/redirect URLs, and configure production email delivery in Supabase Auth. The AI API is limited to 20 requests per account per 15 minutes. Its limiter is in memory and resets when the process restarts; use a shared rate-limit store before running multiple server instances.
 
+## CI and Render deployment
+
+The GitHub Actions workflow runs `npm ci`, audits dependencies, and builds the app for pull requests and pushes to `main`. A successful push to `main` triggers a Render deploy hook; deployment is serialized and does not run for pull requests.
+
+To enable deployment:
+
+1. Create a Render **Web Service** for this repository using Node.js 22, build command `npm ci && npm run build`, and start command `npm start`. Set the health check path to `/healthz` and disable Render's automatic deploys so deployments remain gated by CI.
+2. Configure `OPENAI_API_KEY`, `SUPABASE_URL`, `SUPABASE_PUBLISHABLE_KEY`, `VITE_SUPABASE_URL`, and `VITE_SUPABASE_PUBLISHABLE_KEY` in the Render service. The health check stays unhealthy until the server-side Supabase and OpenAI credentials are present.
+3. Create a GitHub **production** environment and add its `RENDER_DEPLOY_HOOK_URL` secret using the deploy hook from the Render service. Optionally require reviewers for this environment to add a manual production approval.
+
+The workflow currently has no application test or lint commands to run; add them when the project adopts those checks.
+
 ## How it fits together
 
 - `src/App.jsx` composes the authentication and note workspace views.

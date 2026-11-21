@@ -36,6 +36,10 @@ app.use(helmet({
   },
 }));
 app.use(express.json({ limit: "100kb" }));
+app.get("/healthz", (_req, res) => {
+  const ready = Boolean(supabase && openai);
+  res.status(ready ? 200 : 503).json({ status: ready ? "ok" : "not_ready" });
+});
 // Mount the authenticated AI feature before the generic API 404 and the static app fallback.
 app.use("/api/notes", createNotesRouter({
   supabase,
