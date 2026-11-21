@@ -35,7 +35,7 @@ app.get("/healthz", (_req, res) => {
   const ready = Boolean(supabase);
   res.status(ready ? 200 : 503).json({ status: ready ? "ok" : "not_ready" });
 });
-// Mount the authenticated AI feature before the generic API 404 and the static app fallback.
+// Mount the disabled AI endpoint before the generic API 404 and static app fallback.
 app.use("/api/notes", createNotesRouter());
 app.use("/api", (_req, res) => res.status(404).json({ error: "API route not found." }));
 

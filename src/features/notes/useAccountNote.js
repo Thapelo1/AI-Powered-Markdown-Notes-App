@@ -15,7 +15,6 @@ export function useAccountNote(session) {
   const [savedNote, setSavedNote] = useState("");
   const [noteDirty, setNoteDirty] = useState(false);
   const [loadedUserId, setLoadedUserId] = useState("");
-  const [noteExists, setNoteExists] = useState(false);
   const [noteStatus, setNoteStatus] = useState("loading");
   const [noteError, setNoteError] = useState("");
   const [legacyNote] = useState(readLegacyNote);
@@ -31,7 +30,6 @@ export function useAccountNote(session) {
       setSavedNote("");
       setNoteDirty(false);
       setLoadedUserId("");
-      setNoteExists(false);
       lastSavedNote.current = null;
       setNoteStatus("idle");
       setNoteError("");
@@ -45,7 +43,6 @@ export function useAccountNote(session) {
     setSavedNote("");
     setNoteDirty(false);
     setLoadedUserId("");
-    setNoteExists(false);
     lastSavedNote.current = null;
     setNoteStatus("loading");
     setNoteError("");
@@ -65,7 +62,6 @@ export function useAccountNote(session) {
       }
 
       setSavedNote(data?.content || "");
-      setNoteExists(Boolean(data));
       lastSavedNote.current = data?.content ?? null;
       void logUserEvent("note.loaded", { has_note: Boolean(data) });
       // Do not replace an account's remote note with an unrelated browser draft.
@@ -111,7 +107,6 @@ export function useAccountNote(session) {
             setSavedNote(note);
             setNoteDirty(false);
             setNoteError("");
-            setNoteExists(true);
             setNoteStatus("saved");
           }
         } catch (error) {
@@ -154,7 +149,6 @@ export function useAccountNote(session) {
       setSavedNote(legacyNote);
       setNoteDirty(false);
       void logUserEvent("note.imported", { character_count: legacyNote.length });
-      setNoteExists(true);
       lastSavedNote.current = legacyNote;
       setShowImport(false);
       setNoteStatus("saved");
