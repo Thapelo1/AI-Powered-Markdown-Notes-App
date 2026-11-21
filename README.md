@@ -45,7 +45,7 @@ To enable deployment:
 
 1. Create a Render **Web Service** for this repository using Node.js 22, build command `npm ci && npm run build`, and start command `npm start`. Set the health check path to `/healthz` and disable Render's automatic deploys so deployments remain gated by CI.
 2. Configure `OPENAI_API_KEY`, `SUPABASE_URL`, `SUPABASE_PUBLISHABLE_KEY`, `VITE_SUPABASE_URL`, and `VITE_SUPABASE_PUBLISHABLE_KEY` in the Render service. The health check stays unhealthy until the server-side Supabase and OpenAI credentials are present.
-3. Create a GitHub **production** environment and add its `RENDER_DEPLOY_HOOK_URL` secret using the deploy hook from the Render service. Optionally require reviewers for this environment to add a manual production approval.
+3. Create a GitHub **production** environment and add `RENDER_DEPLOY_HOOK_URL` as an **Environment secret** in that environment using the deploy hook from the Render service. A repository-level secret with the same name does not satisfy this workflow. Optionally require reviewers for this environment to add a manual production approval.
 
 The workflow currently has no application test or lint commands to run; add them when the project adopts those checks.
 

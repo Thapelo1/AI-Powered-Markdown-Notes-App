@@ -42,10 +42,14 @@ jobs:
           RENDER_DEPLOY_HOOK_URL: ${{ secrets.RENDER_DEPLOY_HOOK_URL }}
         run: |
           if [ -z "$RENDER_DEPLOY_HOOK_URL" ]; then
-            echo "Configure RENDER_DEPLOY_HOOK_URL in the production GitHub environment."
+            echo "::error title=Missing Render deploy hook::Add RENDER_DEPLOY_HOOK_URL to the production GitHub environment secret: $GITHUB_SERVER_URL/$GITHUB_REPOSITORY/settings/environments/production"
+            exit 1
+          fi
+          if [[ "$RENDER_DEPLOY_HOOK_URL" != https://* ]]; then
+            echo "::error title=Invalid Render deploy hook::RENDER_DEPLOY_HOOK_URL must be an HTTPS URL."
             exit 1
           fi
       - name: Trigger Render deployment
         env:
           RENDER_DEPLOY_HOOK_URL: ${{ secrets.RENDER_DEPLOY_HOOK_URL }}
-        run: curl --fail --silent --show-error --request POST "$RENDER_DEPLOY_HOOK_URL"
+        run: curl --fail --silent --show-error --retry 3 --retry-all-errors --max-time 30 --request POST "$RENDER_DEPLOY_HOOK_URL"
