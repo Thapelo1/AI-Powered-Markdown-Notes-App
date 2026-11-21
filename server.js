@@ -9,8 +9,8 @@ import { createNotesRouter } from "./server/routes/notes.js";
 // Bootstrap shared clients and HTTP middleware; the OpenAI credential never enters the browser bundle.
 const app = express();
 const port = process.env.PORT || 3001;
-const supabaseUrl = process.env.SUPABASE_URL;
-const supabaseKey = process.env.SUPABASE_PUBLISHABLE_KEY;
+const supabaseUrl = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL;
+const supabaseKey = process.env.SUPABASE_PUBLISHABLE_KEY || process.env.VITE_SUPABASE_PUBLISHABLE_KEY;
 const supabase = supabaseUrl && supabaseKey
   ? createClient(supabaseUrl, supabaseKey, {
       auth: { autoRefreshToken: false, persistSession: false },
