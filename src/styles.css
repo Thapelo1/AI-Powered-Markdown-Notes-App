@@ -1,5 +1,6 @@
 @import url("https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=DM+Sans:wght@400;500;600;700&family=Newsreader:opsz,wght@6..72,500;6..72,600&display=swap");
 
+/* Global type, color, sizing, and keyboard focus defaults. */
 :root {
   font-family: "DM Sans", sans-serif;
   color: #242821;
@@ -18,6 +19,7 @@ button, textarea { font: inherit; }
 button:focus-visible, textarea:focus-visible, a:focus-visible { outline: 3px solid #a9b5ff; outline-offset: 3px; }
 
 .app-shell { min-height: 100vh; }
+/* Shared application header and account controls. */
 .topbar {
   height: 72px;
   padding: 0 max(6.25vw, 28px);
@@ -32,8 +34,28 @@ button:focus-visible, textarea:focus-visible, a:focus-visible { outline: 3px sol
 .topbar-right { display: flex; gap: 22px; align-items: center; }
 .saved-indicator { color: #787e75; font-size: 12px; display: flex; align-items: center; gap: 8px; }
 .saved-indicator > span { width: 7px; height: 7px; border-radius: 50%; background: #83a66d; }
-.avatar { width: 32px; height: 32px; border-radius: 50%; background: #e8e6db; color: #55594e; display: grid; place-items: center; font-size: 13px; font-weight: 600; }
+.account-email { color: #787e75; font-size: 12px; }
+.auth-switch { background: none; border: 0; color: #737d61; cursor: pointer; font-size: 12px; padding: 8px 0; }
+.sign-out { white-space: nowrap; }
+/* Authentication form and its shared status messages. */
+.auth-page { min-height: 100vh; display: grid; place-items: center; align-content: center; gap: 32px; padding: 28px; }
+.auth-page > .brand { position: absolute; top: 24px; left: max(6.25vw, 28px); }
+.auth-card { width: min(440px, 100%); background: #fff; border: 1px solid #e8eae5; border-radius: 12px; padding: 36px; box-shadow: 0 3px 12px rgba(34, 43, 29, .025); }
+.auth-card h1 { font-size: 34px; margin: 15px 0 8px; }
+.auth-card > p { color: #777e74; font-size: 13px; line-height: 1.6; }
+.auth-form { display: grid; gap: 18px; margin-top: 24px; }
+.auth-form label { display: grid; gap: 8px; color: #535a4f; font-size: 12px; font-weight: 600; }
+.auth-form input { width: 100%; height: 42px; border: 1px solid #e2e5de; border-radius: 7px; padding: 0 12px; color: #444940; }
+.auth-form input:focus-visible { outline: 3px solid #a9b5ff; outline-offset: 2px; }
+.auth-submit { width: 100%; }
+.form-message { margin: 0; color: #68745b; font-size: 12px; line-height: 1.5; }
+.form-message.error-state { color: #a04f43; }
+.auth-card > .auth-switch { margin-top: 18px; }
+.import-notice { display: flex; justify-content: space-between; align-items: center; gap: 12px; margin-bottom: 12px; padding: 10px 14px; border: 1px solid #e4e6df; border-radius: 8px; background: #fff; color: #68745b; font-size: 12px; }
+.import-notice button:disabled { opacity: .5; cursor: not-allowed; }
+.storage-error { margin: 0 0 12px; color: #a04f43; font-size: 12px; }
 
+/* Main writing workspace: intro, note metadata, and editor/result columns. */
 .workspace { width: min(1120px, calc(100% - 56px)); margin: 0 auto; padding: 62px 0 24px; }
 .intro { margin-bottom: 48px; }
 .eyebrow, .section-label { font-family: "DM Mono", monospace; font-size: 10px; letter-spacing: 1px; color: #848a7e; }
@@ -70,6 +92,7 @@ h1 { margin: 15px 0 8px; font: 500 42px/1.1 "Newsreader", serif; letter-spacing:
 .loader { width: 20px; height: 20px; border: 2px solid #e5e9df; border-top-color: #86976d; border-radius: 50%; animation: spin .8s linear infinite; }
 @keyframes spin { to { transform: rotate(360deg); } }
 
+/* AI actions and page-level footer. */
 .action-row { display: flex; align-items: center; justify-content: space-between; margin-top: 16px; padding: 14px 0; }
 .action-copy { display: flex; align-items: center; gap: 10px; color: #8a9085; font-size: 11px; }
 .action-copy strong { color: #555d50; font-weight: 600; }
@@ -86,11 +109,15 @@ h1 { margin: 15px 0 8px; font: 500 42px/1.1 "Newsreader", serif; letter-spacing:
 .rewrite-icon { font-size: 14px; margin-right: 5px; }
 .page-footer { display: flex; justify-content: space-between; border-top: 1px solid #e8eae5; padding-top: 17px; color: #a0a49c; font-size: 10px; }
 
+/* Stack panels and controls on narrow screens while preserving readable spacing. */
 @media (max-width: 680px) {
   .topbar { height: 62px; padding: 0 20px; }
   .saved-indicator { font-size: 0; gap: 0; }
   .saved-indicator > span { width: 8px; height: 8px; }
-  .topbar-right { gap: 15px; }
+  .topbar-right { gap: 12px; }
+  .account-email { max-width: 110px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .auth-page > .brand { left: 20px; }
+  .auth-card { padding: 28px 22px; }
   .workspace { width: calc(100% - 36px); padding-top: 42px; }
   .intro { margin-bottom: 36px; }
   h1 { font-size: 36px; }
@@ -101,4 +128,5 @@ h1 { margin: 15px 0 8px; font: 500 42px/1.1 "Newsreader", serif; letter-spacing:
   .actions { width: 100%; }
   .button { flex: 1; }
   .page-footer { gap: 12px; flex-direction: column; }
+  .import-notice { align-items: flex-start; flex-direction: column; }
 }
