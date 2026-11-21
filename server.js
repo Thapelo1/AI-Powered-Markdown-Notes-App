@@ -1,12 +1,11 @@
 import "dotenv/config";
 import express from "express";
 import helmet from "helmet";
-import OpenAI from "openai";
 import { createClient } from "@supabase/supabase-js";
 import { existsSync } from "node:fs";
 import { createNotesRouter } from "./server/routes/notes.js";
 
-// Bootstrap shared clients and HTTP middleware; the OpenAI credential never enters the browser bundle.
+// Bootstrap shared clients and HTTP middleware.
 const app = express();
 const port = process.env.PORT || 3001;
 const supabaseUrl = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL;
@@ -16,10 +15,6 @@ const supabase = supabaseUrl && supabaseKey
       auth: { autoRefreshToken: false, persistSession: false },
     })
   : null;
-const openai = process.env.OPENAI_API_KEY
-  ? new OpenAI({ apiKey: process.env.OPENAI_API_KEY, timeout: 45_000 })
-  : null;
-
 app.use(helmet({
   contentSecurityPolicy: {
     directives: {
@@ -37,15 +32,11 @@ app.use(helmet({
 }));
 app.use(express.json({ limit: "100kb" }));
 app.get("/healthz", (_req, res) => {
-  const ready = Boolean(supabase && openai);
+  const ready = Boolean(supabase);
   res.status(ready ? 200 : 503).json({ status: ready ? "ok" : "not_ready" });
 });
 // Mount the authenticated AI feature before the generic API 404 and the static app fallback.
-app.use("/api/notes", createNotesRouter({
-  supabase,
-  openai,
-  model: process.env.OPENAI_MODEL || "gpt-4o-mini",
-}));
+app.use("/api/notes", createNotesRouter());
 app.use("/api", (_req, res) => res.status(404).json({ error: "API route not found." }));
 
 if (existsSync("dist/index.html")) {

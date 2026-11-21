@@ -12,6 +12,8 @@ function readLegacyNote() {
 
 export function useAccountNote(session) {
   const [note, setNote] = useState("");
+  const [savedNote, setSavedNote] = useState("");
+  const [noteDirty, setNoteDirty] = useState(false);
   const [loadedUserId, setLoadedUserId] = useState("");
   const [noteExists, setNoteExists] = useState(false);
   const [noteStatus, setNoteStatus] = useState("loading");
@@ -26,10 +28,13 @@ export function useAccountNote(session) {
   useEffect(() => {
     if (!session) {
       setNote("");
+      setSavedNote("");
+      setNoteDirty(false);
       setLoadedUserId("");
       setNoteExists(false);
       lastSavedNote.current = null;
       setNoteStatus("idle");
+      setNoteError("");
       setShowImport(false);
       return undefined;
     }
@@ -37,6 +42,8 @@ export function useAccountNote(session) {
     let cancelled = false;
     const userId = session.user.id;
     setNote("");
+    setSavedNote("");
+    setNoteDirty(false);
     setLoadedUserId("");
     setNoteExists(false);
     lastSavedNote.current = null;
@@ -57,7 +64,7 @@ export function useAccountNote(session) {
         return;
       }
 
-      setNote(data?.content || "");
+      setSavedNote(data?.content || "");
       setNoteExists(Boolean(data));
       lastSavedNote.current = data?.content ?? null;
       void logUserEvent("note.loaded", { has_note: Boolean(data) });
@@ -85,8 +92,8 @@ export function useAccountNote(session) {
       !userId
       || loadedUserId !== userId
       || importing
+      || !noteDirty
       || note === lastSavedNote.current
-      || (!note.trim() && !noteExists)
     ) return undefined;
 
     let cancelled = false;
@@ -101,6 +108,8 @@ export function useAccountNote(session) {
           void logUserEvent("note.saved", { character_count: note.length });
           if (!cancelled) {
             lastSavedNote.current = note;
+            setSavedNote(note);
+            setNoteDirty(false);
             setNoteError("");
             setNoteExists(true);
             setNoteStatus("saved");
@@ -119,7 +128,17 @@ export function useAccountNote(session) {
       cancelled = true;
       window.clearTimeout(timeout);
     };
-  }, [note, noteExists, loadedUserId, session?.user.id, importing]);
+  }, [note, noteDirty, loadedUserId, session?.user.id, importing]);
+
+  function updateNote(value) {
+    setNote(value);
+    setNoteDirty(true);
+  }
+
+  function restoreSavedNote() {
+    setNote(savedNote);
+    setNoteDirty(false);
+  }
 
   async function importLegacyNote() {
     if (!session || !legacyNote) return;
@@ -132,6 +151,8 @@ export function useAccountNote(session) {
         .insert({ user_id: session.user.id, content: legacyNote });
       if (error) throw error;
       setNote(legacyNote);
+      setSavedNote(legacyNote);
+      setNoteDirty(false);
       void logUserEvent("note.imported", { character_count: legacyNote.length });
       setNoteExists(true);
       lastSavedNote.current = legacyNote;
@@ -151,7 +172,9 @@ export function useAccountNote(session) {
 
   return {
     note,
-    setNote,
+    setNote: updateNote,
+    savedNote,
+    restoreSavedNote,
     noteReady: loadedUserId === session?.user.id,
     noteStatus,
     noteError,

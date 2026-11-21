@@ -1,7 +1,6 @@
 import AuthPanel from "./features/auth/AuthPanel.jsx";
 import { useAuthSession } from "./features/auth/useAuthSession.js";
 import { useAccountNote } from "./features/notes/useAccountNote.js";
-import { useAiActions } from "./features/notes/useAiActions.js";
 import { NOTE_LIMIT, supabase } from "./lib/supabase.js";
 
 // Compose feature state into the three app-level views: setup, sign-in, and the note workspace.
@@ -10,6 +9,8 @@ export default function App() {
   const {
     note,
     setNote,
+    savedNote,
+    restoreSavedNote,
     noteReady,
     noteStatus,
     noteError,
@@ -17,8 +18,6 @@ export default function App() {
     importing,
     importLegacyNote,
   } = useAccountNote(session);
-  const { result, activeAction, error, copied, runAction, copyResult } = useAiActions(session, note);
-
   if (!supabase) {
     return (
       <main className="auth-page">
@@ -69,7 +68,7 @@ export default function App() {
         <div className="intro">
           <div className="eyebrow"><span className="sparkle">✳</span> YOUR THOUGHTS, IN GOOD COMPANY</div>
           <h1>A little more clarity.</h1>
-          <p>Write it out. Then make it clearer with a little help from AI.</p>
+          <p>Write it out, keep it close, and come back anytime.</p>
         </div>
 
         <div className="workspace-heading">
@@ -108,34 +107,21 @@ export default function App() {
             />
             <div className="editor-footer">
               <span>Changes save to your account</span>
+              {savedNote && !note.trim() && (
+                <button className="copy-button" onClick={restoreSavedNote}>Restore saved note</button>
+              )}
               <span>{NOTE_LIMIT - note.length} characters left</span>
             </div>
           </section>
 
-          <section className={`panel result-panel${result ? " has-result" : ""}`} aria-label="AI result" aria-live="polite">
+          <section className="panel result-panel" aria-label="AI companion" aria-live="polite">
             <div className="panel-header">
               <span className="panel-title"><span className="dot dot-purple" /> AI companion</span>
-              {result && <button className="copy-button" onClick={copyResult}>{copied ? "Copied" : "Copy"}</button>}
             </div>
-            {activeAction ? (
-              <div className="result-empty loading-state">
-                <span className="loader" />
-                <span>{activeAction === "summarize" ? "Finding the main ideas…" : "Polishing your note…"}</span>
-              </div>
-            ) : error ? (
-              <div className="result-empty error-state">
-                <span className="result-icon">!</span>
-                <p>{error}</p>
-              </div>
-            ) : result ? (
-              <div className="result-content">{result}</div>
-            ) : (
-              <div className="result-empty">
-                <span className="result-icon">✳</span>
-                <p>Your clearer thoughts<br />will show up here.</p>
-                <span className="result-hint">Choose an action below to get started</span>
-              </div>
-            )}
+            <div className="result-empty">
+              <span className="result-icon">✳</span>
+              <p>AI actions are disabled to avoid paid API usage.</p>
+            </div>
           </section>
         </div>
 
@@ -145,15 +131,15 @@ export default function App() {
             <span><strong>Make it yours.</strong> Your original note stays untouched.</span>
           </div>
           <div className="actions">
-            <button className="button button-secondary" disabled={!noteReady || !note.trim() || Boolean(activeAction) || importing} onClick={() => runAction("rewrite")}>
+            <button className="button button-secondary" disabled title="AI actions are disabled to avoid paid API usage.">
               <span className="rewrite-icon">↗</span> Rewrite
             </button>
-            <button className="button button-primary" disabled={!noteReady || !note.trim() || Boolean(activeAction) || importing} onClick={() => runAction("summarize")}>
+            <button className="button button-primary" disabled title="AI actions are disabled to avoid paid API usage.">
               <span>✳</span> Summarize
             </button>
           </div>
         </div>
-        <footer className="page-footer"><span>Made for the thoughts that deserve a second look.</span><span>Notes are stored with Supabase; AI actions send them to OpenAI.</span></footer>
+        <footer className="page-footer"><span>Made for the thoughts that deserve a second look.</span><span>Your notes are stored in your Supabase account.</span></footer>
       </section>
     </main>
   );
