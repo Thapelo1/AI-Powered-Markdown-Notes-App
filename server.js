@@ -1,48 +1,48 @@
 import "dotenv/config";
 import express from "express";
+import helmet from "helmet";
 import OpenAI from "openai";
+import { createClient } from "@supabase/supabase-js";
 import { existsSync } from "node:fs";
+import { createNotesRouter } from "./server/routes/notes.js";
 
+// Bootstrap shared clients and HTTP middleware; the OpenAI credential never enters the browser bundle.
 const app = express();
 const port = process.env.PORT || 3001;
-const model = process.env.OPENAI_MODEL || "gpt-4o-mini";
+const supabaseUrl = process.env.SUPABASE_URL;
+const supabaseKey = process.env.SUPABASE_PUBLISHABLE_KEY;
+const supabase = supabaseUrl && supabaseKey
+  ? createClient(supabaseUrl, supabaseKey, {
+      auth: { autoRefreshToken: false, persistSession: false },
+    })
+  : null;
+const openai = process.env.OPENAI_API_KEY
+  ? new OpenAI({ apiKey: process.env.OPENAI_API_KEY, timeout: 45_000 })
+  : null;
 
+app.use(helmet({
+  contentSecurityPolicy: {
+    directives: {
+      defaultSrc: ["'self'"],
+      scriptSrc: ["'self'"],
+      styleSrc: ["'self'", "https://fonts.googleapis.com"],
+      fontSrc: ["'self'", "https://fonts.gstatic.com"],
+      // Supabase auth/database calls are allowed only to the configured project origin.
+      connectSrc: ["'self'", supabaseUrl ? new URL(supabaseUrl).origin : ""].filter(Boolean),
+      objectSrc: ["'none'"],
+      baseUri: ["'self'"],
+      frameAncestors: ["'none'"],
+    },
+  },
+}));
 app.use(express.json({ limit: "100kb" }));
-
-app.post("/api/notes/:action", async (req, res) => {
-  const { action } = req.params;
-  const { content } = req.body ?? {};
-
-  if (!["summarize", "rewrite"].includes(action)) {
-    return res.status(400).json({ error: "Choose summarize or rewrite." });
-  }
-  if (typeof content !== "string" || !content.trim()) {
-    return res.status(400).json({ error: "Add some note text first." });
-  }
-  if (content.length > 20000) {
-    return res.status(413).json({ error: "Notes must be 20,000 characters or fewer." });
-  }
-  if (!process.env.OPENAI_API_KEY) {
-    return res.status(503).json({ error: "Add your OpenAI API key to .env to use AI actions." });
-  }
-
-  try {
-    const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
-    const response = await openai.responses.create({
-      model,
-      instructions:
-        action === "summarize"
-          ? "Summarize the user's markdown notes clearly and concisely. Preserve key facts and use markdown when helpful."
-          : "Rewrite the user's markdown notes for clarity and flow. Preserve their meaning, facts, and markdown structure.",
-      input: content.trim(),
-    });
-
-    res.json({ result: response.output_text });
-  } catch (error) {
-    console.error("OpenAI request failed:", error.message);
-    res.status(502).json({ error: "The AI request failed. Check your API key and try again." });
-  }
-});
+// Mount the authenticated AI feature before the generic API 404 and the static app fallback.
+app.use("/api/notes", createNotesRouter({
+  supabase,
+  openai,
+  model: process.env.OPENAI_MODEL || "gpt-4o-mini",
+}));
+app.use("/api", (_req, res) => res.status(404).json({ error: "API route not found." }));
 
 if (existsSync("dist/index.html")) {
   app.use(express.static("dist"));

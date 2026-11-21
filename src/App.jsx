@@ -1,46 +1,49 @@
-import { useEffect, useState } from "react";
+import AuthPanel from "./features/auth/AuthPanel.jsx";
+import { useAuthSession } from "./features/auth/useAuthSession.js";
+import { useAccountNote } from "./features/notes/useAccountNote.js";
+import { useAiActions } from "./features/notes/useAiActions.js";
+import { NOTE_LIMIT, supabase } from "./lib/supabase.js";
 
-const STORAGE_KEY = "margin-note";
-
+// Compose feature state into the three app-level views: setup, sign-in, and the note workspace.
 export default function App() {
-  const [note, setNote] = useState(() => localStorage.getItem(STORAGE_KEY) || "");
-  const [result, setResult] = useState("");
-  const [activeAction, setActiveAction] = useState("");
-  const [error, setError] = useState("");
-  const [copied, setCopied] = useState(false);
+  const { session, authReady, authError, setAuthError, signOut } = useAuthSession();
+  const {
+    note,
+    setNote,
+    noteReady,
+    noteStatus,
+    noteError,
+    showImport,
+    importing,
+    importLegacyNote,
+  } = useAccountNote(session);
+  const { result, activeAction, error, copied, runAction, copyResult } = useAiActions(session, note);
 
-  useEffect(() => {
-    localStorage.setItem(STORAGE_KEY, note);
-  }, [note]);
-
-  async function runAction(action) {
-    setActiveAction(action);
-    setError("");
-    setResult("");
-
-    try {
-      const response = await fetch(`/api/notes/${action}`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ content: note }),
-      });
-      const data = await response.json();
-      if (!response.ok) throw new Error(data.error || "Something went wrong.");
-      setResult(data.result);
-    } catch (requestError) {
-      setError(requestError.message || "Could not reach the notes API.");
-    } finally {
-      setActiveAction("");
-    }
+  if (!supabase) {
+    return (
+      <main className="auth-page">
+        <section className="auth-card">
+          <h1>Supabase setup needed.</h1>
+          <p>Add the VITE_SUPABASE_URL and VITE_SUPABASE_PUBLISHABLE_KEY values to your environment, then restart the app.</p>
+        </section>
+      </main>
+    );
   }
 
-  async function copyResult() {
-    await navigator.clipboard.writeText(result);
-    setCopied(true);
-    window.setTimeout(() => setCopied(false), 1600);
+  if (!authReady) {
+    return <main className="auth-page"><p role="status">Checking your sign-in…</p></main>;
   }
+
+  if (!session) return <AuthPanel initialError={authError} />;
 
   const wordCount = note.trim() ? note.trim().split(/\s+/).length : 0;
+  const saveLabel = {
+    loading: "Loading note…",
+    saving: "Saving to your account…",
+    saved: "Saved to your account",
+    error: "Save needs attention",
+    idle: "Not signed in",
+  }[noteStatus];
 
   return (
     <main className="app-shell">
@@ -50,8 +53,15 @@ export default function App() {
           <span>margin</span>
         </a>
         <div className="topbar-right">
-          <span className="saved-indicator"><span /> Saved on this device</span>
-          <span className="avatar" aria-label="Your workspace">T</span>
+          <span className="saved-indicator" aria-live="polite"><span />{saveLabel}</span>
+          <span className="account-email">{session.user.email}</span>
+          <button className="auth-switch sign-out" onClick={async () => {
+            try {
+              await signOut();
+            } catch (signOutError) {
+              setAuthError(signOutError.message || "Could not sign out.");
+            }
+          }}>Sign out</button>
         </div>
       </header>
 
@@ -70,6 +80,17 @@ export default function App() {
           <span className="markdown-badge"><span>#</span> Markdown</span>
         </div>
 
+        {authError && <p className="storage-error" role="alert">{authError}</p>}
+        {showImport && (
+          <div className="import-notice" role="status">
+            <span>A note saved in this browser was found.</span>
+            <button className="copy-button" disabled={importing} onClick={importLegacyNote}>
+              {importing ? "Importing…" : "Import to this account"}
+            </button>
+          </div>
+        )}
+        {noteError && <p className="storage-error" role="alert">{noteError}</p>}
+
         <div className="panels">
           <section className="panel editor-panel" aria-label="Markdown note editor">
             <div className="panel-header">
@@ -82,10 +103,12 @@ export default function App() {
               value={note}
               onChange={(event) => setNote(event.target.value)}
               spellCheck="false"
+              maxLength={NOTE_LIMIT}
+              disabled={!noteReady || importing}
             />
             <div className="editor-footer">
-              <span>Changes save as you type</span>
-              <span>Markdown supported</span>
+              <span>Changes save to your account</span>
+              <span>{NOTE_LIMIT - note.length} characters left</span>
             </div>
           </section>
 
@@ -122,15 +145,15 @@ export default function App() {
             <span><strong>Make it yours.</strong> Your original note stays untouched.</span>
           </div>
           <div className="actions">
-            <button className="button button-secondary" disabled={!note.trim() || Boolean(activeAction)} onClick={() => runAction("rewrite")}>
+            <button className="button button-secondary" disabled={!noteReady || !note.trim() || Boolean(activeAction) || importing} onClick={() => runAction("rewrite")}>
               <span className="rewrite-icon">↗</span> Rewrite
             </button>
-            <button className="button button-primary" disabled={!note.trim() || Boolean(activeAction)} onClick={() => runAction("summarize")}>
+            <button className="button button-primary" disabled={!noteReady || !note.trim() || Boolean(activeAction) || importing} onClick={() => runAction("summarize")}>
               <span>✳</span> Summarize
             </button>
           </div>
         </div>
-        <footer className="page-footer"><span>Made for the thoughts that deserve a second look.</span><span>AI can make mistakes. Your notes stay yours.</span></footer>
+        <footer className="page-footer"><span>Made for the thoughts that deserve a second look.</span><span>Notes are stored with Supabase; AI actions send them to OpenAI.</span></footer>
       </section>
     </main>
   );
