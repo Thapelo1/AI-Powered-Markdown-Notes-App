@@ -104,7 +104,12 @@ export function createNotesRouter({
       return res.status(502).json({ error: "OpenAI returned an invalid response. Try again." });
     }
 
-    const result = completion?.choices?.[0]?.message?.content;
+    const choice = completion?.choices?.[0];
+    if (choice?.finish_reason === "length") {
+      return res.status(502).json({ error: "OpenAI output was cut off. Shorten the note and try again." });
+    }
+
+    const result = choice?.message?.content;
     if (typeof result !== "string" || !result.trim()) {
       return res.status(502).json({ error: "OpenAI returned an empty response. Try again." });
     }

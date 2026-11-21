@@ -60,8 +60,11 @@ self.addEventListener("fetch", (event) => {
 
   event.respondWith(
     caches.match(request).then((cached) => cached || fetch(request).then((response) => {
-      if (!response.ok || response.type !== "basic") return response;
-      return caches.open(CACHE_NAME).then((cache) => cache.put(request, response.clone())).then(() => response);
+      if (!response.ok || response.type !== "basic" || response.status === 206) return response;
+      return caches.open(CACHE_NAME)
+        .then((cache) => cache.put(request, response.clone()))
+        .catch((error) => console.warn("Could not cache app asset:", error))
+        .then(() => response);
     })),
   );
 });

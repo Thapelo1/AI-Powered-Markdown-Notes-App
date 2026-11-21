@@ -28,9 +28,9 @@ async function withNotesApi(options, run) {
   }
 }
 
-function openAiResponse(result) {
+function openAiResponse(result, finishReason = "stop") {
   return new Response(JSON.stringify({
-    choices: [{ message: { content: result } }],
+    choices: [{ message: { content: result }, finish_reason: finishReason }],
   }), { headers: { "Content-Type": "application/json" } });
 }
 
@@ -82,6 +82,18 @@ test("sends a rewrite to OpenAI using the server key and returns its result", as
   });
 });
 
+test("rejects output that OpenAI stopped at the token limit", async () => {
+  await withNotesApi({
+    supabase,
+    apiKey: "test-key",
+    fetchImpl: async () => openAiResponse("Partial summary", "length"),
+  }, async (baseUrl) => {
+    const response = await postAction(baseUrl, "summarize");
+    assert.equal(response.status, 502);
+    assert.match((await response.json()).error, /cut off/);
+  });
+});
+
 test("rejects oversized notes before calling OpenAI", async () => {
   let openAiCalls = 0;
   await withNotesApi({
@@ -103,6 +115,7 @@ test("limits each account to 20 requests per 15-minute window", async () => {
     supabase,
     apiKey: "test-key",
     fetchImpl: async () => openAiResponse("Summary"),
+    now: () => 1_000,
   }, async (baseUrl) => {
     for (let request = 0; request < 20; request += 1) {
       assert.equal((await postAction(baseUrl, "summarize")).status, 200);
@@ -111,6 +124,24 @@ test("limits each account to 20 requests per 15-minute window", async () => {
     const response = await postAction(baseUrl, "summarize");
     assert.equal(response.status, 429);
     assert.equal(response.headers.get("retry-after"), "900");
+  });
+});
+
+test("allows requests again after the rate-limit window expires", async () => {
+  let currentTime = 1_000;
+  await withNotesApi({
+    supabase,
+    apiKey: "test-key",
+    fetchImpl: async () => openAiResponse("Summary"),
+    now: () => currentTime,
+  }, async (baseUrl) => {
+    for (let request = 0; request < 20; request += 1) {
+      assert.equal((await postAction(baseUrl, "summarize")).status, 200);
+    }
+    assert.equal((await postAction(baseUrl, "summarize")).status, 429);
+
+    currentTime += 15 * 60 * 1000;
+    assert.equal((await postAction(baseUrl, "summarize")).status, 200);
   });
 });
 
